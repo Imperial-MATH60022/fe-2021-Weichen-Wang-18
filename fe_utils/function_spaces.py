@@ -5,7 +5,6 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.tri import Triangulation
 
-
 class FunctionSpace(object):
 
     def __init__(self, mesh, element):
@@ -23,7 +22,7 @@ class FunctionSpace(object):
         #: The :class:`~.finite_elements.FiniteElement` of this space.
         self.element = element
 
-        raise NotImplementedError
+        
 
         # Implement global numbering in order to produce the global
         # cell node list for this space.
@@ -31,7 +30,26 @@ class FunctionSpace(object):
         #: which each row lists the global nodes incident to the corresponding
         #: cell. The implementation of this member is left as an
         #: :ref:`exercise <ex-function-space>`
-        self.cell_nodes = None
+        
+
+        
+        dimc = mesh.dim
+        
+        number_of_cells = mesh.cell_vertices.shape[0]
+        cell_nodes = np.zeros((number_of_cells,element.node_count), dtype=int)
+
+        for c in range(number_of_cells):
+            for delta in range(dimc+1):
+            
+                for epsilon in range(element.cell.entity_counts[delta]):
+
+                    i = mesh.adjacency(dimc,delta)[c,epsilon]
+                    G = np.sum([element.nodes_per_entity[d]*mesh.entity_counts[d] for d in range(delta)])+i*element.nodes_per_entity[delta]
+                    
+                    cell_nodes[c,element.entity_nodes[delta][epsilon]] = [G+i for i in range(element.nodes_per_entity[delta])]
+        
+        
+        self.cell_nodes = cell_nodes
 
         #: The total number of nodes in the function space.
         self.node_count = np.dot(element.nodes_per_entity, mesh.entity_counts)

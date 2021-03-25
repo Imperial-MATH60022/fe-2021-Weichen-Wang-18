@@ -86,13 +86,15 @@ class Mesh(object):
         :attr:`edge_vertices`, :attr:`cell_edges` and :attr:`cell_vertices`.
         """
 
-        if dim2 >= dim1:
+        if dim2 > dim1:
             raise ValueError("""dim2 must be less than dim1.""")
         if dim2 < 0:
             raise ValueError("""dim2 cannot be negative.""")
         if dim1 > self.dim:
             raise ValueError("""dim1 cannot exceed the mesh dimension.""")
 
+        if dim1 == dim2:
+            return np.array(list(range(self.cell_vertices.shape[0])))[:,np.newaxis]
         if dim1 == 1:
             if self.dim == 1:
                 return self.cell_vertices
