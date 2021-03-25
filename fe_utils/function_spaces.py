@@ -32,23 +32,26 @@ class FunctionSpace(object):
         #: :ref:`exercise <ex-function-space>`
         
 
-        
+        # get dim(c)
         dimc = mesh.dim
-        
+        # get the number of cells in the mesh using index of cell_vertices
         number_of_cells = mesh.cell_vertices.shape[0]
+        # initialise cell_nodes
         cell_nodes = np.zeros((number_of_cells,element.node_count), dtype=int)
 
+        # repeat for c rows/cells
         for c in range(number_of_cells):
+            # for 0<=delta<=dim(c)
             for delta in range(dimc+1):
-            
+                # for 0 <= epsilon < number of dimension δ entities in each cell
                 for epsilon in range(element.cell.entity_counts[delta]):
-
+                    # precalculate i and G(delta,i)
                     i = mesh.adjacency(dimc,delta)[c,epsilon]
                     G = np.sum([element.nodes_per_entity[d]*mesh.entity_counts[d] for d in range(delta)])+i*element.nodes_per_entity[delta]
-                    
+                    # implement equation (4.3)
                     cell_nodes[c,element.entity_nodes[delta][epsilon]] = [G+i for i in range(element.nodes_per_entity[delta])]
         
-        
+        # pass this to self
         self.cell_nodes = cell_nodes
 
         #: The total number of nodes in the function space.
