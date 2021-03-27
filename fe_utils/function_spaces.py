@@ -4,6 +4,7 @@ from .finite_elements import LagrangeElement, lagrange_points
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.tri import Triangulation
+from .quadrature import QuadratureRule
 
 class FunctionSpace(object):
 
@@ -188,4 +189,10 @@ class Function(object):
 
         :result: The integral (a scalar)."""
 
-        raise NotImplementedError
+        qr = QuadratureRule(self.function_space.element.cell,self.function_space.element.degree,
+                            self.function_space.element.nodes, )
+
+        ba_func = tabulate(qr.points)
+
+        for c in range(self.function_space.mesh.entity_counts[-1]):
+            j = np.linalg.det(self.function_space.mesh.jacobian(c))
