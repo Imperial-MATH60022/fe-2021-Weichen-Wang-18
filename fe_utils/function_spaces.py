@@ -4,7 +4,7 @@ from .finite_elements import LagrangeElement, lagrange_points
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.tri import Triangulation
-from .quadrature import QuadratureRule
+from .quadrature import QuadratureRule, gauss_quadrature
 
 class FunctionSpace(object):
 
@@ -189,10 +189,28 @@ class Function(object):
 
         :result: The integral (a scalar)."""
 
-        qr = QuadratureRule(self.function_space.element.cell,self.function_space.element.degree,
-                            self.function_space.element.nodes, )
+        fs = self.function_space
+        element = fs.element
+        mesh = fs.mesh
 
-        ba_func = tabulate(qr.points)
+        # construct quadrature rule
+        qr = gauss_quadrature(element.cell, element.degree)
 
-        for c in range(self.function_space.mesh.entity_counts[-1]):
-            j = np.linalg.det(self.function_space.mesh.jacobian(c))
+        # tabulate through the points
+        ba_func = element.tabulate(qr.points)
+
+
+        integral = 0
+        # loop though each cell
+        for c in range(mesh.entity_counts[-1]):
+            # get |J|
+            j = np.abs(np.linalg.det(mesh.jacobian(c)))
+            # get the cell-node map
+            nodes = fs.cell_nodes[c, :]
+            # F(M(c,:))
+            F = self.values[nodes]
+            # compute the actual integral, add this to total integral
+            integral += np.dot(np.dot(ba_func,F) , qr.weights) * j
+            
+
+        return integral
