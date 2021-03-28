@@ -15,12 +15,14 @@ def assemble(fs, f):
     the function space in which to solve and the right hand side
     function."""
 
-    raise NotImplementedError
 
     # Create an appropriate (complete) quadrature rule.
-
+    element = fs.element
+    mesh = fs.mesh
+    qr = gauss_quadrature(element.cell, element.degree)
     # Tabulate the basis functions and their gradients at the quadrature points.
-
+    ba_func = element.tabulate(qr.points)
+    grad = element.tabulate(qr.points,grad=True)
     # Create the left hand side matrix and right hand side vector.
     # This creates a sparse matrix because creating a dense one may
     # well run your machine out of memory!
@@ -28,7 +30,35 @@ def assemble(fs, f):
     l = np.zeros(fs.node_count)
 
     # Now loop over all the cells and assemble A and l
+    for c in range(mesh.entity_counts[-1]):
+        # get |J|
+        j = np.abs(np.linalg.det(mesh.jacobian(c)))
+        jt = np.linalg.inv(mesh.jacobian(c)).T
+        # get cell-node map
+        nodes = fs.cell_nodes[c, :]
+        # (6.72) in 2 steps.
+        sumk = np.dot(ba_func,f.values[nodes])
+        l[nodes] += j * np.sum(ba_func.T * sumk * qr.weights, axis = 1)
 
+        # creating left hand side matrix
+        for i in range(element.node_count):
+            for j in range(element.node_count):
+                #raise NameError(jt.shape,grad.shape,element.node_count,ba_func.shape,qr.weights.shape)
+                if element.cell is ReferenceInterval:
+                    js = jt * jt * grad[:,i,:]*grad[:,i,:]
+                elif element.cell is ReferenceTriangle:
+
+                    js = np.zeros(ba_func.shape[0])
+                    for alpha in range(2):
+                        for beta in range(2):
+                            for gamma in range(2):
+
+                                js += jt[beta,alpha] * grad[:,i,beta] * jt[gamma,alpha] * grad[:,j,gamma]
+                else:
+                    raise ValueError("Unknown reference cell: %s" % element.cell)
+
+                A[nodes[i],nodes[j]] += np.sum((js + ba_func.T[i] * ba_func.T[j]) * j * qr.weights)
+                #raise NameError(A.shape,A[nodes[i],nodes[j]])
     return A, l
 
 
