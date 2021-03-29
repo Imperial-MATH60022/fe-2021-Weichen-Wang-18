@@ -20,6 +20,7 @@ def assemble(fs, f):
     element = fs.element
     mesh = fs.mesh
     qr = gauss_quadrature(element.cell, element.degree)
+    w = qr.weights
     # Tabulate the basis functions and their gradients at the quadrature points.
     ba_func = element.tabulate(qr.points)
     grad = element.tabulate(qr.points,grad=True)
@@ -32,20 +33,20 @@ def assemble(fs, f):
     # Now loop over all the cells and assemble A and l
     for c in range(mesh.entity_counts[-1]):
         # get |J|
-        j = np.abs(np.linalg.det(mesh.jacobian(c)))
-        jt = np.linalg.inv(mesh.jacobian(c)).T
+        J = np.abs(np.linalg.det(mesh.jacobian(c)))
+        j_1 = np.linalg.inv(mesh.jacobian(c))
         # get cell-node map
         nodes = fs.cell_nodes[c, :]
         # (6.72) in 2 steps.
         sumk = np.dot(ba_func,f.values[nodes])
-        l[nodes] += j * np.sum(ba_func.T * sumk * qr.weights, axis = 1)
+        l[nodes] = l[nodes]+J * np.sum(ba_func.T * sumk * w, axis = 1)
 
         # creating left hand side matrix
         for i in range(element.node_count):
             for j in range(element.node_count):
-                #raise NameError(jt.shape,grad.shape,element.node_count,ba_func.shape,qr.weights.shape)
+        #        #raise NameError(jt.shape,grad.shape,element.node_count,ba_func.shape,qr.weights.shape)
                 if element.cell is ReferenceInterval:
-                    js = jt * jt * grad[:,i,:]*grad[:,i,:]
+                    js = j_1 * j_1 * grad[:,i,:]*grad[:,j,:]
                 elif element.cell is ReferenceTriangle:
 
                     js = np.zeros(ba_func.shape[0])
@@ -53,12 +54,18 @@ def assemble(fs, f):
                         for beta in range(2):
                             for gamma in range(2):
 
-                                js += jt[beta,alpha] * grad[:,i,beta] * jt[gamma,alpha] * grad[:,j,gamma]
+                                js += j_1[beta,alpha] * grad[:,i,beta] * j_1[gamma,alpha] * grad[:,j,gamma]
                 else:
                     raise ValueError("Unknown reference cell: %s" % element.cell)
 
-                A[nodes[i],nodes[j]] += np.sum((js + ba_func.T[i] * ba_func.T[j]) * j * qr.weights)
-                #raise NameError(A.shape,A[nodes[i],nodes[j]])
+                temp = np.sum((js + ba_func.T[i] * ba_func.T[j]) * J * qr.weights)
+                if temp != 0:
+
+                    A[nodes[i],nodes[j]] += temp
+                    #raise NameError(A.shape,A[nodes[i],nodes[j]]
+                    #,(js + ba_func.T[i] * ba_func.T[j]) * j * qr.weights)
+                #A[nodes[i],nodes[j]] = A[nodes[i],nodes[j]] + np.sum((np.sum(grad[:,i,:] @ j_1 * grad[:,j,:] @ j_1, axis=1) + ba_func.T[i]*ba_func.T[j]) * J * w)
+         
     return A, l
 
 
