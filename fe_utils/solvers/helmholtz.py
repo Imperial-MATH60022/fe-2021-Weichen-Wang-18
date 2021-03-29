@@ -14,7 +14,8 @@ def assemble(fs, f):
     """Assemble the finite element system for the Helmholtz problem given
     the function space in which to solve and the right hand side
     function."""
-
+    import time
+    t=time.time()
 
     # Create an appropriate (complete) quadrature rule.
     element = fs.element
@@ -38,34 +39,34 @@ def assemble(fs, f):
         # get cell-node map
         nodes = fs.cell_nodes[c, :]
         # (6.72) in 2 steps.
-        sumk = np.dot(ba_func,f.values[nodes])
-        l[nodes] = l[nodes]+J * np.sum(ba_func.T * sumk * w, axis = 1)
+        sumk = ba_func@f.values[nodes]
+        l[nodes] += J * np.sum(ba_func.T * sumk * w, axis = 1)
 
         # creating left hand side matrix
-        for i in range(element.node_count):
-            for j in range(element.node_count):
-        #        #raise NameError(jt.shape,grad.shape,element.node_count,ba_func.shape,qr.weights.shape)
-                if element.cell is ReferenceInterval:
-                    js = j_1 * j_1 * grad[:,i,:]*grad[:,j,:]
-                elif element.cell is ReferenceTriangle:
+        #for i in range(element.node_count):
+            #for j in range(element.node_count):
+                
+                #js = np.zeros(ba_func.shape[0])
+                #for alpha in range(2):
+                #    for beta in range(2):
+                #        for gamma in range(2):
 
-                    js = np.zeros(ba_func.shape[0])
-                    for alpha in range(2):
-                        for beta in range(2):
-                            for gamma in range(2):
+                #            js += j_1[beta,alpha] * grad[:,i,beta] * j_1[gamma,alpha] * grad[:,j,gamma]
+                
+                #temp = np.sum((js + ba_func.T[i] * ba_func.T[j]) * J * qr.weights)
+                #if temp != 0:
 
-                                js += j_1[beta,alpha] * grad[:,i,beta] * j_1[gamma,alpha] * grad[:,j,gamma]
-                else:
-                    raise ValueError("Unknown reference cell: %s" % element.cell)
+                #    A[nodes[i],nodes[j]] += temp
 
-                temp = np.sum((js + ba_func.T[i] * ba_func.T[j]) * J * qr.weights)
-                if temp != 0:
+        temp1 = grad @ j_1
+        temp2 = grad @ j_1
+        ba = np.einsum('ji,jk->jik',ba_func,ba_func)
+            #raise NameError(np.einsum('ij,ikj->ik',temp1,temp2).shape,temp1.shape,temp2.shape,ba.shape)
 
-                    A[nodes[i],nodes[j]] += temp
-                    #raise NameError(A.shape,A[nodes[i],nodes[j]]
-                    #,(js + ba_func.T[i] * ba_func.T[j]) * j * qr.weights)
-                #A[nodes[i],nodes[j]] = A[nodes[i],nodes[j]] + np.sum((np.sum(grad[:,i,:] @ j_1 * grad[:,j,:] @ j_1, axis=1) + ba_func.T[i]*ba_func.T[j]) * J * w)
-         
+        A[np.ix_(nodes,nodes)] += np.einsum('ijk,i->jk',(np.einsum('ilj,ikj->ilk',temp1,temp2) + ba),w) * J
+            
+
+    #raise NameError(time.time()-t, sp.isspmatrix_lil(A))
     return A, l
 
 
