@@ -14,8 +14,8 @@ def assemble(fs, f):
     """Assemble the finite element system for the Helmholtz problem given
     the function space in which to solve and the right hand side
     function."""
-    import time
-    t=time.time()
+    #import time
+    #t=time.time()
 
     # Create an appropriate (complete) quadrature rule.
     element = fs.element
@@ -31,6 +31,8 @@ def assemble(fs, f):
     A = sp.lil_matrix((fs.node_count, fs.node_count))
     l = np.zeros(fs.node_count)
 
+    ba = np.einsum('ji,jk->jik',ba_func,ba_func)
+    
     # Now loop over all the cells and assemble A and l
     for c in range(mesh.entity_counts[-1]):
         # get |J|
@@ -42,6 +44,7 @@ def assemble(fs, f):
         sumk = ba_func@f.values[nodes]
         l[nodes] += J * np.sum(ba_func.T * sumk * w, axis = 1)
 
+        
         # creating left hand side matrix
         #for i in range(element.node_count):
             #for j in range(element.node_count):
@@ -59,11 +62,10 @@ def assemble(fs, f):
                 #    A[nodes[i],nodes[j]] += temp
 
         temp1 = grad @ j_1
-        temp2 = grad @ j_1
-        ba = np.einsum('ji,jk->jik',ba_func,ba_func)
+        
             #raise NameError(np.einsum('ij,ikj->ik',temp1,temp2).shape,temp1.shape,temp2.shape,ba.shape)
 
-        A[np.ix_(nodes,nodes)] += np.einsum('ijk,i->jk',(np.einsum('ilj,ikj->ilk',temp1,temp2) + ba),w) * J
+        A[np.ix_(nodes,nodes)] += np.einsum('ijk,i->jk',(np.einsum('ilj,ikj->ilk',temp1,temp1) + ba),w) * J
             
 
     #raise NameError(time.time()-t, sp.isspmatrix_lil(A))
