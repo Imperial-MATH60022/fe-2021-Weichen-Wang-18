@@ -56,7 +56,7 @@ def assemble(fs, f):
         # creating left hand side matrix
         temp1 = grad @ j_1
         
-            #raise NameError(np.einsum('ij,ikj->ik',temp1,temp2).shape,temp1.shape,temp2.shape,ba.shape)
+        #raise NameError((np.einsum('ilj,ikj->ilk',temp1,temp1)+ba).shape,temp1.shape,ba.shape,w.shape)
 
         A[np.ix_(nodes,nodes)] += np.einsum('ijk,i->jk',(np.einsum('ilj,ikj->ilk',temp1,temp1) + ba),w) * J
     
