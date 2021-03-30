@@ -14,14 +14,15 @@ def assemble(fs, f):
     """Assemble the finite element system for the Helmholtz problem given
     the function space in which to solve and the right hand side
     function."""
-    #import time
-    #t=time.time()
+
 
     # Create an appropriate (complete) quadrature rule.
     element = fs.element
     mesh = fs.mesh
     qr = gauss_quadrature(element.cell, element.degree)
     w = qr.weights
+
+    
     # Tabulate the basis functions and their gradients at the quadrature points.
     ba_func = element.tabulate(qr.points)
     grad = element.tabulate(qr.points,grad=True)
@@ -33,42 +34,35 @@ def assemble(fs, f):
 
     ba = np.einsum('ji,jk->jik',ba_func,ba_func)
     
+    #import time
+    #t=time.time()
+    #t1=0
+    #t2=0
+    #t3=0
+    #t4=0
+    #t5=0
     # Now loop over all the cells and assemble A and l
     for c in range(mesh.entity_counts[-1]):
         # get |J|
-        J = np.abs(np.linalg.det(mesh.jacobian(c)))
-        j_1 = np.linalg.inv(mesh.jacobian(c))
+        ja = mesh.jacobian(c)
+        J = np.abs(np.linalg.det(ja))
+        j_1 = np.linalg.inv(ja)
         # get cell-node map
         nodes = fs.cell_nodes[c, :]
         # (6.72) in 2 steps.
         sumk = ba_func@f.values[nodes]
         l[nodes] += J * np.sum(ba_func.T * sumk * w, axis = 1)
 
-        
         # creating left hand side matrix
-        #for i in range(element.node_count):
-            #for j in range(element.node_count):
-                
-                #js = np.zeros(ba_func.shape[0])
-                #for alpha in range(2):
-                #    for beta in range(2):
-                #        for gamma in range(2):
-
-                #            js += j_1[beta,alpha] * grad[:,i,beta] * j_1[gamma,alpha] * grad[:,j,gamma]
-                
-                #temp = np.sum((js + ba_func.T[i] * ba_func.T[j]) * J * qr.weights)
-                #if temp != 0:
-
-                #    A[nodes[i],nodes[j]] += temp
-
         temp1 = grad @ j_1
         
             #raise NameError(np.einsum('ij,ikj->ik',temp1,temp2).shape,temp1.shape,temp2.shape,ba.shape)
 
         A[np.ix_(nodes,nodes)] += np.einsum('ijk,i->jk',(np.einsum('ilj,ikj->ilk',temp1,temp1) + ba),w) * J
-            
+    
+    
 
-    #raise NameError(time.time()-t, sp.isspmatrix_lil(A))
+    #raise NameError(t5,t1,t2,t3,t4, sp.isspmatrix_lil(A))
     return A, l
 
 
