@@ -4,7 +4,7 @@ from .finite_elements import LagrangeElement, lagrange_points
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.tri import Triangulation
-
+from .quadrature import QuadratureRule, gauss_quadrature
 
 class FunctionSpace(object):
 
@@ -23,7 +23,7 @@ class FunctionSpace(object):
         #: The :class:`~.finite_elements.FiniteElement` of this space.
         self.element = element
 
-        raise NotImplementedError
+        
 
         # Implement global numbering in order to produce the global
         # cell node list for this space.
@@ -31,7 +31,29 @@ class FunctionSpace(object):
         #: which each row lists the global nodes incident to the corresponding
         #: cell. The implementation of this member is left as an
         #: :ref:`exercise <ex-function-space>`
-        self.cell_nodes = None
+        
+
+        # get dim(c)
+        dimc = mesh.dim
+        # get the number of cells in the mesh using index of cell_vertices
+        number_of_cells = mesh.cell_vertices.shape[0]
+        # initialise cell_nodes
+        cell_nodes = np.zeros((number_of_cells,element.node_count), dtype=int)
+
+        # repeat for c rows/cells
+        for c in range(number_of_cells):
+            # for 0<=delta<=dim(c)
+            for delta in range(dimc+1):
+                # for 0 <= epsilon < number of dimension δ entities in each cell
+                for epsilon in range(element.cell.entity_counts[delta]):
+                    # precalculate i and G(delta,i)
+                    i = mesh.adjacency(dimc,delta)[c,epsilon]
+                    G = np.sum([element.nodes_per_entity[d]*mesh.entity_counts[d] for d in range(delta)])+i*element.nodes_per_entity[delta]
+                    # implement equation (4.3)
+                    cell_nodes[c,element.entity_nodes[delta][epsilon]] = [G+i for i in range(element.nodes_per_entity[delta])]
+        
+        # pass this to self
+        self.cell_nodes = cell_nodes
 
         #: The total number of nodes in the function space.
         self.node_count = np.dot(element.nodes_per_entity, mesh.entity_counts)
@@ -167,4 +189,28 @@ class Function(object):
 
         :result: The integral (a scalar)."""
 
-        raise NotImplementedError
+        fs = self.function_space
+        element = fs.element
+        mesh = fs.mesh
+
+        # construct quadrature rule
+        qr = gauss_quadrature(element.cell, element.degree)
+
+        # tabulate through the points
+        ba_func = element.tabulate(qr.points)
+
+
+        integral = 0
+        # loop though each cell
+        for c in range(mesh.entity_counts[-1]):
+            # get |J|
+            j = np.abs(np.linalg.det(mesh.jacobian(c)))
+            # get the cell-node map
+            nodes = fs.cell_nodes[c, :]
+            # F(M(c,:))
+            F = self.values[nodes]
+            # compute the actual integral, add this to total integral
+            integral += np.dot(np.dot(ba_func,F) , qr.weights) * j
+            
+
+        return integral

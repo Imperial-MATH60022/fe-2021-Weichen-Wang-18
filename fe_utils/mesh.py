@@ -3,7 +3,7 @@ import numpy as np
 import itertools
 from .finite_elements import LagrangeElement
 from .reference_elements import ReferenceTriangle, ReferenceInterval
-
+from .function_spaces import FunctionSpace
 
 class Mesh(object):
     """A one or two dimensional mesh composed of intervals or triangles
@@ -71,6 +71,12 @@ class Mesh(object):
         #: :class:`Mesh` is composed.
         self.cell = (0, ReferenceInterval, ReferenceTriangle)[self.dim]
 
+        # the grad in jacobian, calling tabulate()
+        
+        lg = LagrangeElement(self.cell, 1)
+        grad = lg.tabulate(lg.nodes, grad=True)
+        self.grad = grad
+        
     def adjacency(self, dim1, dim2):
         """Return the set of `dim2` entities adjacent to each `dim1`
         entity. For example if `dim1==2` and `dim2==1` then return the list of
@@ -86,13 +92,16 @@ class Mesh(object):
         :attr:`edge_vertices`, :attr:`cell_edges` and :attr:`cell_vertices`.
         """
 
-        if dim2 >= dim1:
+        if dim2 > dim1:
             raise ValueError("""dim2 must be less than dim1.""")
         if dim2 < 0:
             raise ValueError("""dim2 cannot be negative.""")
         if dim1 > self.dim:
             raise ValueError("""dim1 cannot exceed the mesh dimension.""")
 
+        # if dimension equals and is reasonable
+        if (dim1 == dim2) and (dim1 == 0 or dim1 == 1 or dim1 == 2):
+            return np.array(list(range(self.cell_vertices.shape[0])))[:,np.newaxis]
         if dim1 == 1:
             if self.dim == 1:
                 return self.cell_vertices
@@ -111,7 +120,10 @@ class Mesh(object):
         :result: The Jacobian for cell ``c``.
         """
 
-        raise NotImplementedError
+        vertex_coords = self.vertex_coords[self.cell_vertices[c,:]]
+        
+        return vertex_coords.T @ self.grad[0]
+
 
 
 class UnitIntervalMesh(Mesh):
@@ -144,3 +156,4 @@ class UnitSquareMesh(Mesh):
 
         super(UnitSquareMesh, self).__init__(mesh.points,
                                              mesh.simplices)
+

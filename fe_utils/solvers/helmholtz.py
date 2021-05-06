@@ -15,20 +15,54 @@ def assemble(fs, f):
     the function space in which to solve and the right hand side
     function."""
 
-    raise NotImplementedError
 
     # Create an appropriate (complete) quadrature rule.
+    element = fs.element
+    mesh = fs.mesh
+    qr = gauss_quadrature(element.cell, element.degree)
+    w = qr.weights
 
+    
     # Tabulate the basis functions and their gradients at the quadrature points.
-
+    ba_func = element.tabulate(qr.points)
+    grad = element.tabulate(qr.points,grad=True)
     # Create the left hand side matrix and right hand side vector.
     # This creates a sparse matrix because creating a dense one may
     # well run your machine out of memory!
     A = sp.lil_matrix((fs.node_count, fs.node_count))
     l = np.zeros(fs.node_count)
 
+    ba = np.einsum('ji,jk->jik',ba_func,ba_func)
+    
+    #import time
+    #t=time.time()
+    #t1=0
+    #t2=0
+    #t3=0
+    #t4=0
+    #t5=0
     # Now loop over all the cells and assemble A and l
+    for c in range(mesh.entity_counts[-1]):
+        # get |J|
+        ja = mesh.jacobian(c)
+        J = np.abs(np.linalg.det(ja))
+        j_1 = np.linalg.inv(ja)
+        # get cell-node map
+        nodes = fs.cell_nodes[c, :]
+        # (6.72) in 2 steps.
+        sumk = ba_func@f.values[nodes]
+        l[nodes] += J * np.sum(ba_func.T * sumk * w, axis = 1)
 
+        # creating left hand side matrix
+        temp1 = grad @ j_1
+        
+        #raise NameError((np.einsum('ilj,ikj->ilk',temp1,temp1)+ba).shape,temp1.shape,ba.shape,w.shape)
+
+        A[np.ix_(nodes,nodes)] += np.einsum('ijk,i->jk',(np.einsum('ilj,ikj->ilk',temp1,temp1) + ba),w) * J
+    
+    
+
+    #raise NameError(t5,t1,t2,t3,t4, sp.isspmatrix_lil(A))
     return A, l
 
 
